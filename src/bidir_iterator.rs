@@ -37,14 +37,19 @@ pub trait BidirIterator {
     ///     sum += i;
     /// }
     /// assert_eq!(sum, 10);
+    ///
+    /// for i in iter.backward() {
+    ///     sum += i;
+    /// }
+    /// assert_eq!(sum, 20);
     /// ```
-    fn forward(self) -> Forward<Self> where Self: Sized {
+    fn forward(&mut self) -> Forward<Self> where Self: Sized {
         Forward { iter: self }
     }
 
     /// Create a backward-moving Iterator,
     /// starting at the current position.
-    fn backward(self) -> Backward<Self> where Self: Sized {
+    fn backward(&mut self) -> Backward<Self> where Self: Sized {
         Backward { iter: self }
     }
 
@@ -108,11 +113,11 @@ pub trait BidirIterator {
     }
 }
 
-pub struct Forward<B> {
-    iter: B
+pub struct Forward<'a, B> {
+    iter: &'a mut B
 }
 
-impl<B: BidirIterator> Iterator for Forward<B> {
+impl<'a, B: BidirIterator> Iterator for Forward<'a, B> {
     type Item = B::Item;
 
     fn next(&mut self) -> Option<B::Item> {
@@ -120,11 +125,11 @@ impl<B: BidirIterator> Iterator for Forward<B> {
     }
 }
 
-pub struct Backward<B> {
-    iter: B
+pub struct Backward<'a, B> {
+    iter: &'a mut B
 }
 
-impl<B: BidirIterator> Iterator for Backward<B> {
+impl<'a, B: BidirIterator> Iterator for Backward<'a, B> {
     type Item = B::Item;
 
     fn next(&mut self) -> Option<B::Item> {
