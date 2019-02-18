@@ -1,5 +1,7 @@
 # Bidrectional iterators
 
+[![Build Status](https://travis-ci.org/sbillig/bidir_iter.svg?branch=master)](https://travis-ci.org/sbillig/bidir_iter)
+
 ```rust
 use bidir_iter::*;
 
