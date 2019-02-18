@@ -2,6 +2,8 @@
 pub trait BidirIterator {
     type Item;
 
+    fn next(&mut self) -> Option<Self::Item>;
+
     /// # Examples
     /// ```
     /// use bidir_iter::*;
@@ -19,10 +21,10 @@ pub trait BidirIterator {
     /// assert_eq!(iter.prev(), None);
     /// assert_eq!(iter.next(), Some(&1));
     /// ```
-    fn next(&mut self) -> Option<Self::Item>;
     fn prev(&mut self) -> Option<Self::Item>;
 
-    /// Returns a forward-moving Iterator.
+    /// Create a forward-moving Iterator,
+    /// starting at the current position.
     ///
     /// # Examples
     /// ```
@@ -40,7 +42,8 @@ pub trait BidirIterator {
         Forward { iter: self }
     }
 
-    /// Returns a backward-moving Iterator; ie. an Iterator that calls prev().
+    /// Create a backward-moving Iterator,
+    /// starting at the current position.
     fn backward(self) -> Backward<Self> where Self: Sized {
         Backward { iter: self }
     }
@@ -84,6 +87,24 @@ pub trait BidirIterator {
         Self: Sized, F: FnMut(Self::Item) -> B,
     {
         Map { iter: self, f }
+    }
+
+    /// # Examples
+    /// ```
+    /// use bidir_iter::*;
+    ///
+    /// let a: &[i64] = &[0, 1, 2, 0, 3];
+    /// let mut iter = a.bidir_iter().filter_map(|i| if *i == 0 { None } else { Some(1 / i) });
+    ///
+    /// assert_eq!(iter.next(), Some(1/1));
+    /// assert_eq!(iter.next(), Some(1/2));
+    /// assert_eq!(iter.next(), Some(1/3));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    fn filter_map<B, F>(self, f: F) -> FilterMap<Self, F> where
+        Self: Sized, F: FnMut(Self::Item) -> Option<B>,
+    {
+        FilterMap { iter: self, f }
     }
 }
 
@@ -158,5 +179,40 @@ impl<B, I: BidirIterator, F> BidirIterator for Map<I, F> where
 
     fn prev(&mut self) -> Option<B> {
         self.iter.prev().map(&mut self.f)
+    }
+}
+
+pub struct FilterMap<I, F> {
+    iter: I,
+    f: F
+}
+
+impl<B, I: BidirIterator, F> BidirIterator for FilterMap<I, F> where
+    F: FnMut(I::Item) -> Option<B> {
+
+    type Item = B;
+
+    fn next(&mut self) -> Option<B> {
+        loop {
+            match self.iter.next() {
+                Some(a) => if let Some(b) = (self.f)(a) {
+                    return Some(b);
+                },
+                None => break
+            }
+        }
+        None
+    }
+
+    fn prev(&mut self) -> Option<B> {
+        loop {
+            match self.iter.prev() {
+                Some(a) => if let Some(b) = (self.f)(a) {
+                    return Some(b);
+                },
+                None => break
+            }
+        }
+        None
     }
 }
