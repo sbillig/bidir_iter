@@ -1,4 +1,4 @@
-# Bidrectional iterators in rust
+# Bidrectional iterators
 
 ```rust
 use bidir_iter::*;
@@ -12,4 +12,5 @@ assert_eq!(iter.next(), Some(&3));
 assert_eq!(iter.prev(), Some(&2));
 assert_eq!(iter.prev(), Some(&1));
 assert_eq!(iter.prev(), None);
+assert_eq!(iter.next(), Some(&1));
 ```

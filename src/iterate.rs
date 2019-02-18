@@ -23,6 +23,7 @@ impl<'a, T> BidirIterator for BiIter<'a, T> {
 
     fn prev(&mut self) -> Option<&'a T> {
         if self.next <= 1 {
+            self.next = 0;
             None
         } else {
             self.next -= 1;

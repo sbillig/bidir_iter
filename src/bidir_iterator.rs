@@ -17,6 +17,7 @@ pub trait BidirIterator {
     /// assert_eq!(iter.prev(), Some(&2));
     /// assert_eq!(iter.prev(), Some(&1));
     /// assert_eq!(iter.prev(), None);
+    /// assert_eq!(iter.next(), Some(&1));
     /// ```
     fn next(&mut self) -> Option<Self::Item>;
     fn prev(&mut self) -> Option<Self::Item>;
