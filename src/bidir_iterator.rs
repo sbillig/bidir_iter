@@ -233,28 +233,18 @@ where
     type Item = B::Item;
 
     fn next(&mut self) -> Option<B::Item> {
-        loop {
-            match self.iter.next() {
-                Some(i) => {
-                    if (self.predicate)(&i) {
-                        return Some(i);
-                    }
-                }
-                None => break,
+        while let Some(i) = self.iter.next() {
+            if (self.predicate)(&i) {
+                return Some(i);
             }
         }
         None
     }
 
     fn prev(&mut self) -> Option<B::Item> {
-        loop {
-            match self.iter.prev() {
-                Some(i) => {
-                    if (self.predicate)(&i) {
-                        return Some(i);
-                    }
-                }
-                None => break,
+        while let Some(i) = self.iter.prev() {
+            if (self.predicate)(&i) {
+                return Some(i);
             }
         }
         None
@@ -293,28 +283,18 @@ where
     type Item = B;
 
     fn next(&mut self) -> Option<B> {
-        loop {
-            match self.iter.next() {
-                Some(a) => {
-                    if let Some(b) = (self.f)(a) {
-                        return Some(b);
-                    }
-                }
-                None => break,
+        while let Some(a) = self.iter.next() {
+            if let Some(b) = (self.f)(a) {
+                return Some(b);
             }
         }
         None
     }
 
     fn prev(&mut self) -> Option<B> {
-        loop {
-            match self.iter.prev() {
-                Some(a) => {
-                    if let Some(b) = (self.f)(a) {
-                        return Some(b);
-                    }
-                }
-                None => break,
+        while let Some(a) = self.iter.prev() {
+            if let Some(b) = (self.f)(a) {
+                return Some(b);
             }
         }
         None
