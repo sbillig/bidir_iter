@@ -1,4 +1,3 @@
-
 pub trait BidirIterator {
     type Item;
 
@@ -25,6 +24,8 @@ pub trait BidirIterator {
 
     /// Create a forward-moving Iterator,
     /// starting at the current position.
+    /// The forward iterator borrows the underlying
+    /// bidirectional iterator.
     ///
     /// # Examples
     /// ```
@@ -43,13 +44,68 @@ pub trait BidirIterator {
     /// }
     /// assert_eq!(sum, 20);
     /// ```
-    fn forward(&mut self) -> Forward<Self> where Self: Sized {
+    fn forward(&mut self) -> Forward<&mut Self>
+    where
+        Self: Sized,
+    {
+        Forward { iter: self }
+    }
+
+    /// Create a forward-moving Iterator,
+    /// starting at the current position.
+    /// Like `forward()`, but the resulting iterator
+    /// owns the underlying bidirectional iterator.
+    ///
+    /// # Examples
+    /// ```
+    /// use bidir_iter::*;
+    ///
+    /// let a: &[i64] = &[1, 2, 3, 4];
+    ///
+    /// let mut iter = a.bidir_iter().forward_owned();
+    /// let mut sum = 0;
+    /// for i in iter {
+    ///     sum += i;
+    /// }
+    /// assert_eq!(sum, 10);
+    /// ```
+    fn forward_owned(self) -> Forward<Self>
+    where
+        Self: Sized,
+    {
         Forward { iter: self }
     }
 
     /// Create a backward-moving Iterator,
     /// starting at the current position.
-    fn backward(&mut self) -> Backward<Self> where Self: Sized {
+    fn backward(&mut self) -> Backward<&mut Self>
+    where
+        Self: Sized,
+    {
+        Backward { iter: self }
+    }
+
+    /// Create a backward-moving Iterator,
+    /// starting at the current position.
+    /// The resulting iterator owns the underlying
+    /// bidir iterator.
+    ///
+    /// # Examples
+    /// ```
+    /// use bidir_iter::*;
+    ///
+    /// let a: &[i64] = &[1, 2, 3, 4];
+    /// let mut iter = a.bidir_iter();
+    /// // .forward() and .backward() borrow the bidir iter
+    /// assert_eq!(iter.forward().count(), 4);
+    /// let mut b = iter.backward_owned();
+    /// // iter has been moved into b
+    /// assert_eq!(b.count(), 4);
+    /// ```
+    fn backward_owned(self) -> Backward<Self>
+    where
+        Self: Sized,
+    {
         Backward { iter: self }
     }
 
@@ -69,10 +125,15 @@ pub trait BidirIterator {
     /// assert_eq!(iter.prev(), Some(&2));
     /// assert_eq!(iter.prev(), None);
     /// ```
-    fn filter<P>(self, predicate: P) -> Filter<Self, P> where
-        Self: Sized, P: FnMut(&Self::Item) -> bool,
+    fn filter<P>(self, predicate: P) -> Filter<Self, P>
+    where
+        Self: Sized,
+        P: FnMut(&Self::Item) -> bool,
     {
-        Filter { iter: self, predicate }
+        Filter {
+            iter: self,
+            predicate,
+        }
     }
 
     /// # Examples
@@ -88,8 +149,10 @@ pub trait BidirIterator {
     /// assert_eq!(iter.next(), None);
     /// assert_eq!(iter.prev(), Some(30));
     /// ```
-    fn map<B, F>(self, f: F) -> Map<Self, F> where
-        Self: Sized, F: FnMut(Self::Item) -> B,
+    fn map<B, F>(self, f: F) -> Map<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(Self::Item) -> B,
     {
         Map { iter: self, f }
     }
@@ -106,18 +169,36 @@ pub trait BidirIterator {
     /// assert_eq!(iter.next(), Some(1/3));
     /// assert_eq!(iter.next(), None);
     /// ```
-    fn filter_map<B, F>(self, f: F) -> FilterMap<Self, F> where
-        Self: Sized, F: FnMut(Self::Item) -> Option<B>,
+    fn filter_map<B, F>(self, f: F) -> FilterMap<Self, F>
+    where
+        Self: Sized,
+        F: FnMut(Self::Item) -> Option<B>,
     {
         FilterMap { iter: self, f }
     }
 }
 
-pub struct Forward<'a, B> {
-    iter: &'a mut B
+impl<T> BidirIterator for &mut T
+where
+    T: BidirIterator,
+{
+    type Item = T::Item;
+    fn next(&mut self) -> Option<Self::Item> {
+        (*self).next()
+    }
+    fn prev(&mut self) -> Option<Self::Item> {
+        (*self).prev()
+    }
 }
 
-impl<'a, B: BidirIterator> Iterator for Forward<'a, B> {
+pub struct Forward<T> {
+    iter: T,
+}
+
+impl<B> Iterator for Forward<B>
+where
+    B: BidirIterator,
+{
     type Item = B::Item;
 
     fn next(&mut self) -> Option<B::Item> {
@@ -125,11 +206,14 @@ impl<'a, B: BidirIterator> Iterator for Forward<'a, B> {
     }
 }
 
-pub struct Backward<'a, B> {
-    iter: &'a mut B
+pub struct Backward<B> {
+    iter: B,
 }
 
-impl<'a, B: BidirIterator> Iterator for Backward<'a, B> {
+impl<B> Iterator for Backward<B>
+where
+    B: BidirIterator,
+{
     type Item = B::Item;
 
     fn next(&mut self) -> Option<B::Item> {
@@ -139,19 +223,24 @@ impl<'a, B: BidirIterator> Iterator for Backward<'a, B> {
 
 pub struct Filter<B, P> {
     iter: B,
-    predicate: P
+    predicate: P,
 }
 
 impl<B: BidirIterator, P> BidirIterator for Filter<B, P>
-where P: FnMut(&B::Item) -> bool
+where
+    P: FnMut(&B::Item) -> bool,
 {
     type Item = B::Item;
 
     fn next(&mut self) -> Option<B::Item> {
         loop {
             match self.iter.next() {
-                Some(i) => if (self.predicate)(&i) { return Some(i); },
-                None => break
+                Some(i) => {
+                    if (self.predicate)(&i) {
+                        return Some(i);
+                    }
+                }
+                None => break,
             }
         }
         None
@@ -160,8 +249,12 @@ where P: FnMut(&B::Item) -> bool
     fn prev(&mut self) -> Option<B::Item> {
         loop {
             match self.iter.prev() {
-                Some(i) => if (self.predicate)(&i) { return Some(i); },
-                None => break
+                Some(i) => {
+                    if (self.predicate)(&i) {
+                        return Some(i);
+                    }
+                }
+                None => break,
             }
         }
         None
@@ -170,12 +263,13 @@ where P: FnMut(&B::Item) -> bool
 
 pub struct Map<I, F> {
     iter: I,
-    f: F
+    f: F,
 }
 
-impl<B, I: BidirIterator, F> BidirIterator for Map<I, F> where
-    F: FnMut(I::Item) -> B {
-
+impl<B, I: BidirIterator, F> BidirIterator for Map<I, F>
+where
+    F: FnMut(I::Item) -> B,
+{
     type Item = B;
 
     fn next(&mut self) -> Option<B> {
@@ -189,21 +283,24 @@ impl<B, I: BidirIterator, F> BidirIterator for Map<I, F> where
 
 pub struct FilterMap<I, F> {
     iter: I,
-    f: F
+    f: F,
 }
 
-impl<B, I: BidirIterator, F> BidirIterator for FilterMap<I, F> where
-    F: FnMut(I::Item) -> Option<B> {
-
+impl<B, I: BidirIterator, F> BidirIterator for FilterMap<I, F>
+where
+    F: FnMut(I::Item) -> Option<B>,
+{
     type Item = B;
 
     fn next(&mut self) -> Option<B> {
         loop {
             match self.iter.next() {
-                Some(a) => if let Some(b) = (self.f)(a) {
-                    return Some(b);
-                },
-                None => break
+                Some(a) => {
+                    if let Some(b) = (self.f)(a) {
+                        return Some(b);
+                    }
+                }
+                None => break,
             }
         }
         None
@@ -212,10 +309,12 @@ impl<B, I: BidirIterator, F> BidirIterator for FilterMap<I, F> where
     fn prev(&mut self) -> Option<B> {
         loop {
             match self.iter.prev() {
-                Some(a) => if let Some(b) = (self.f)(a) {
-                    return Some(b);
-                },
-                None => break
+                Some(a) => {
+                    if let Some(b) = (self.f)(a) {
+                        return Some(b);
+                    }
+                }
+                None => break,
             }
         }
         None

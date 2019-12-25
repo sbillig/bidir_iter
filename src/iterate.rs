@@ -1,16 +1,15 @@
-
 use crate::bidir_iterator::BidirIterator;
 
 pub trait BidirIterate {
     type Item;
-    type BidirIter: BidirIterator<Item=Self::Item>;
+    type BidirIter: BidirIterator<Item = Self::Item>;
 
     fn bidir_iter(&self) -> Self::BidirIter;
 }
 
 pub struct BiIter<'a, T> {
     next: usize,
-    slice: &'a [T]
+    slice: &'a [T],
 }
 
 impl<'a, T> BidirIterator for BiIter<'a, T> {
@@ -37,6 +36,9 @@ impl<'a, T> BidirIterate for &'a [T] {
     type BidirIter = BiIter<'a, T>;
 
     fn bidir_iter(&self) -> Self::BidirIter {
-        BiIter { next: 0, slice: self }
+        BiIter {
+            next: 0,
+            slice: self,
+        }
     }
 }
